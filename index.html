@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+
+<head>
+  <title>Wordz Finder</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/vue@3"></script>
+</head>
+
+<body>
+  <div id="app">
+    <div>
+      <input
+        type="text" placeholder="Letters"
+        @keyup.enter="getWords" v-model="letters"
+        style="margin:0 5px 5px 0;padding:5px"
+      />
+      <button @click="getWords">Get Words</button>
+      <br>
+      <button @click="sortByLetter" v-if="lenSorted">Sort By Letter</button>
+      <button @click="sortByLen" v-else>Sort By Length</button>
+      <p style="color:red">{{ error }}</p>
+    </div>
+
+    <div v-if="lastLetters != ''">
+      <p>Last Letters: {{ lastLetters }}</p>
+      <details v-for="cat in categories">
+        <summary><b>{{ cat.name }}</b></summary>
+        <ol v-for="word in cat.words">
+          <li style="margin:0;padding:0;">{{ word }}</li>
+        </ol>
+      </details>
+    </div>
+  </div>
+
+  <script defer>
+    const App = {
+      data() {
+        return {
+          letters: "",
+          lastLetters: "",
+          categories: [],
+          lenSorted: false,
+          error: "",
+        };
+      },
+
+      methods: {
+        async getWords() {
+          this.error = "";
+          const letters = this.letters.toLowerCase().split("").sort().join("");
+          const url = new URL(
+            `/words?letters=${letters}`, window.location.href,
+          );
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            const text = await resp.text();
+            this.error = text || resp.statusText;
+            return;
+          }
+          const words = await resp.json();
+          if (this.lenSorted) {
+            this.sortWordsByLen(words);
+          } else {
+            this.sortWordsByLetter(words);
+          }
+          this.lastLetters = letters;
+        },
+        sortByLetter() {
+          let newCats = [];
+          for (var c of this.lastLetters) {
+            newCats.push({
+              name: c,
+              words: [],
+            });
+          }
+          for (var cat of this.categories) {
+            for (var word of cat.words) {
+              newCats[word[0]].words.push(word);
+            }
+          }
+          for (var cat of newCats) {
+            cat.words.sort();
+          }
+          this.categories = newCats
+          this.lenSorted = false;
+        },
+        sortByLen() {
+          let lenCats = {};
+          for (var cat of this.categories) {
+            for (var word of cat.words) {
+              const l = word.length;
+              if (!(l in lenCats)) {
+                lenCats[l] = {
+                  name: l,
+                  words: [],
+                };
+              }
+              lenCats[l].words.push(word);
+            }
+          }
+          this.categories = [];
+          for (var cat in lenCats) {
+            this.categories.push(lenCats[cat]);
+          }
+          this.categories.sort((i, j) => i - j);
+          this.lenSorted = true;
+        },
+        sortWordsByLetter(words) {
+          let prev = "";
+          for (var word of words) {
+            let c = word[0];
+            if (prev != c) {
+              this.categories.push({
+                name: c,
+                words: [],
+              });
+            }
+            this.categories[this.categories.length - 1].words.push(word);
+            prev = c;
+          }
+        },
+        sortWordsByLen(words) {
+          let lenCats = {};
+          let prev = 0;
+          for (var word of words) {
+            const l = word.length;
+            if (!(l in lenCats)) {
+              lenCats[l] = {
+                name: l,
+                words: [],
+              };
+            }
+            lenCats[l].words.push(word);
+          }
+          this.categories = [];
+          for (var cat in lenCats) {
+            this.categories.push(lenCats[cat]);
+          }
+          this.categories.sort((i, j) => i - j);
+        },
+        __blank() {}
+      }
+    };
+    Vue.createApp(App).mount("#app");
+  </script>
+</body>
+
+</html>
